@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教学进度记录系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    
+    <!-- Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        accent: '#6366F1',
+                        morning: '#EFF6FF',
+                        afternoon: '#ECFDF5',
+                        warning: '#FBBF24',
+                        danger: '#EF4444',
+                        dark: '#1E293B'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .table-fixed-layout {
+                table-layout: fixed;
+            }
+            .cell-editable {
+                @apply border border-gray-300 rounded p-2 focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[40px] transition-all;
+            }
+            .morning-bg {
+                @apply bg-morning/70;
+            }
+            .afternoon-bg {
+                @apply bg-afternoon/70;
+            }
+            .section-header {
+                @apply font-semibold bg-gray-100 px-3 py-2 border-b border-gray-200;
+            }
+            .fade-in {
+                animation: fadeIn 0.3s ease-in-out;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans text-dark">
+    <!-- 顶部导航栏 -->
+    <header class="bg-white shadow-md fixed w-full top-0 z-10">
+        <div class="container mx-auto px-4 py-3 flex flex-wrap items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-graduation-cap text-primary text-2xl"></i>
+                <h1 class="text-xl md:text-2xl font-bold text-gray-800">教学进度记录系统</h1>
+            </div>
+            
+            <div class="flex items-center space-x-1 md:space-x-4 mt-2 md:mt-0">
+                <button id="currentWeekBtn" class="px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors">
+                    <i class="fa fa-calendar-o mr-1"></i>当前周
+                </button>
+                
+                <div class="flex border rounded-md overflow-hidden">
+                    <button id="prevWeekBtn" class="px-3 py-1.5 text-sm hover:bg-gray-100 transition-colors">
+                        <i class="fa fa-chevron-left"></i>
+                    </button>
+                    <span id="weekIndicator" class="px-3 py-1.5 text-sm bg-gray-50 border-x">第1周</span>
+                    <button id="nextWeekBtn" class="px-3 py-1.5 text-sm hover:bg-gray-100 transition-colors">
+                        <i class="fa fa-chevron-right"></i>
+                    </button>
+                </div>
+                
+                <button id="saveBtn" class="px-3 py-1.5 text-sm bg-primary text-white rounded-md hover:bg-primary/90 transition-colors">
+                    <i class="fa fa-save mr-1"></i>保存
+                </button>
+            </div>
+        </div>
+        
+        <!-- 模式切换标签 -->
+        <div class="border-t border-gray-200 bg-gray-50">
+            <div class="container mx-auto">
+                <div class="flex">
+                    <button id="editModeBtn" class="px-6 py-2.5 font-medium text-primary border-b-2 border-primary">
+                        <i class="fa fa-edit mr-1"></i>编辑模式
+                    </button>
+                    <button id="viewModeBtn" class="px-6 py-2.5 font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+                        <i class="fa fa-list-alt mr-1"></i>查看模式
+                    </button>
+                    <button id="importExportBtn" class="px-6 py-2.5 font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+                        <i class="fa fa-download mr-1"></i>数据管理
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 pt-28 pb-16 min-h-screen">
+        <!-- 编辑模式视图 -->
+        <section id="editModeView" class="fade-in">
+            <!-- 控制栏 -->
+            <div class="bg-white p-4 rounded-lg shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="showOnlyScheduled" class="mr-2 h-4 w-4 text-primary rounded">
+                        <label for="showOnlyScheduled" class="text-sm text-gray-700">只显示有课班级</label>
+                    </div>
+                    
+                    <div class="text-sm text-gray-500">
+                        <span id="completedStats">已完成: 0</span>
+                        <span class="mx-2">|</span>
+                        <span id="totalStats">总计: 0</span>
+                        <span class="mx-2">|</span>
+                        <span id="completionRate">完成率: 0%</span>
+                    </div>
+                </div>
+                
+                <div>
+                    <button id="clearWeekBtn" class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                        <i class="fa fa-eraser mr-1"></i>清空本周
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 周课表 -->
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full table-fixed-layout">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="w-32 p-3 text-left font-semibold border-b border-gray-200">时间段</th>
+                                <th class="p-3 text-center font-semibold border-b border-gray-200">周一</th>
+                                <th class="p-3 text-center font-semibold border-b border-gray-200">周二</th>
+                                <th class="p-3 text-center font-semibold border-b border-gray-200">周三</th>
+                                <th class="p-3 text-center font-semibold border-b border-gray-200">周四</th>
+                                <th class="p-3 text-center font-semibold border-b border-gray-200">周五</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scheduleTableBody">
+                            <!-- 表格内容将通过JavaScript动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 查看模式视图 -->
+        <section id="viewModeView" class="hidden fade-in">
+            <div class="bg-white p-4 rounded-lg shadow-sm mb-6">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <label for="classSelector" class="block text-sm font-medium text-gray-700 mb-1">选择班级:</label>
+                        <select id="classSelector" class="block w-full md:w-64 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <!-- 班级选项将通过JavaScript动态生成 -->
+                        </select>
+                    </div>
+                    
+                    <div class="text-sm text-gray-500">
+                        <span id="classCompletedStats">已完成: 0</span>
+                        <span class="mx-2">|</span>
+                        <span id="classTotalStats">总计: 0</span>
+                        <span class="mx-2">|</span>
+                        <span id="classCompletionRate">完成率: 0%</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 进度图表 -->
+            <div class="bg-white p-4 rounded-lg shadow-sm mb-6">
+                <h3 class="text-lg font-semibold mb-4">班级进度趋势</h3>
+                <div class="h-64">
+                    <canvas id="progressChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- 班级进度列表 -->
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                <h3 class="section-header">教学进度记录</h3>
+                <div id="classProgressList" class="divide-y divide-gray-100">
+                    <!-- 进度记录将通过JavaScript动态生成 -->
+                    <div class="p-6 text-center text-gray-500">
+                        请选择一个班级查看其教学进度
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 导入导出视图 -->
+        <section id="importExportView" class="hidden fade-in">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- 导入区域 -->
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fa fa-upload text-primary mr-2"></i>导入课程表
+                    </h3>
+                    
+                    <div class="mb-4">
+                        <p class="text-sm text-gray-600 mb-3">
+                            导入CSV格式的课程表，系统将自动安排班级授课时间。
+                            CSV文件需包含以下列（使用逗号分隔）：
+                        </p>
+                        <div class="bg-gray-50 p-3 rounded-md text-sm font-mono mb-3">
+                            时间段,班级名称<br>
+                            周一上午1节,3.1班<br>
+                            周一下午2节,5.2班
+                        </div>
+                        <p class="text-xs text-gray-500">
+                            支持的时间段格式：周一上午1节至4节、周一下午1节至2节，以此类推至周五。<br>
+                            支持的班级名称：3.1班至3.7班、5.1班至5.7班。
+                        </p>
+                    </div>
+                    
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer" id="dropArea">
+                        <i class="fa fa-file-text-o text-3xl text-gray-400 mb-2"></i>
+                        <p class="mb-2">拖放CSV文件到此处，或</p>
+                        <label class="inline-block px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors cursor-pointer">
+                            <i class="fa fa-folder-open-o mr-1"></i>选择文件
+                            <input type="file" id="fileInput" accept=".csv" class="hidden">
+                        </label>
+                    </div>
+                    
+                    <div id="importPreview" class="mt-4 hidden">
+                        <h4 class="font-medium mb-2">预览数据：</h4>
+                        <div class="overflow-x-auto max-h-60 border border-gray-200 rounded-md mb-3">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead>
+                                    <tr>
+                                        <th class="px-3 py-2 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间段</th>
+                                        <th class="px-3 py-2 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">班级名称</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="previewTableBody" class="bg-white divide-y divide-gray-200">
+                                    <!-- 预览数据将通过JavaScript动态生成 -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-3">
+                            <button id="cancelImportBtn" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                                取消
+                            </button>
+                            <button id="confirmImportBtn" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors">
+                                <i class="fa fa-check mr-1"></i>确认导入
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="importError" class="mt-4 hidden p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-600">
+                        <!-- 错误信息将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+                
+                <!-- 导出区域 -->
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fa fa-download text-primary mr-2"></i>导出与备份
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <h4 class="font-medium mb-2">导出教学进度</h4>
+                            <div class="flex flex-wrap gap-3">
+                                <button id="exportAllBtn" class="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors flex items-center">
+                                    <i class="fa fa-file-text-o mr-1"></i>导出全部数据
+                                </button>
+                                <button id="exportCurrentClassBtn" class="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors flex items-center">
+                                    <i class="fa fa-file-text-o mr-1"></i>导出当前班级
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-medium mb-2">数据备份与恢复</h4>
+                            <div class="flex flex-wrap gap-3">
+                                <button id="backupDataBtn" class="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors flex items-center">
+                                    <i class="fa fa-save mr-1"></i>备份数据
+                                </button>
+                                <div class="relative">
+                                    <label class="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors flex items-center cursor-pointer">
+                                        <i class="fa fa-refresh mr-1"></i>恢复数据
+                                        <input type="file" id="restoreFileInput" accept=".json" class="absolute inset-0 opacity-0 cursor-pointer">
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="pt-2">
+                            <button id="clearAllDataBtn" class="px-4 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors flex items-center">
+                                <i class="fa fa-trash-o mr-1"></i>清空所有数据
+                            </button>
+                            <p class="text-xs text-gray-500 mt-2">警告：此操作将删除所有已保存的教学进度数据，请谨慎操作。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-white border-t border-gray-200 py-4">
+        <div class="container mx-auto px-4 text-center text-sm text-gray-500">
+            <p>教学进度记录系统 &copy; 2025 | 数据存储在本地浏览器中</p>
+        </div>
+    </footer>
+
+    <!-- 通知提示框 -->
+    <div id="notification" class="fixed bottom-4 right-4 px-4 py-3 rounded-md shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 flex items-center">
+        <i id="notificationIcon" class="mr-2"></i>
+        <span id="notificationMessage"></span>
+    </div>
+
+    <script>
+        // 系统常量定义
+        const CLASSES = [
+            '3.1班', '3.2班', '3.3班', '3.4班', '3.5班', '3.6班', '3.7班',
+            '5.1班', '5.2班', '5.3班', '5.4班', '5.5班', '5.6班', '5.7班'
+        ];
+        
+        const DAYS = ['周一', '周二', '周三', '周四', '周五'];
+        const PERIODS = [
+            { name: '上午1节', type: 'morning' },
+            { name: '上午2节', type: 'morning' },
+            { name: '上午3节', type: 'morning' },
+            { name: '上午4节', type: 'morning' },
+            { name: '下午1节', type: 'afternoon' },
+            { name: '下午2节', type: 'afternoon' }
+        ];
+        
+        // 计算当前教学周（假设开学第一周为9月1日所在周）
+        const START_DATE = new Date(2025, 9, 1); // 9月1日
+        let currentWeek = getCurrentWeek();
+        
+        // 全局数据存储
+        let scheduleData = JSON.parse(localStorage.getItem('teachingSchedule')) || {};
+        let progressChart = null;
+
+        // DOM元素引用
+        const elements = {
+            editModeView: document.getElementById('editModeView'),
+            viewModeView: document.getElementById('viewModeView'),
+            importExportView: document.getElementById('importExportView'),
+            editModeBtn: document.getElementById('editModeBtn'),
+            viewModeBtn: document.getElementById('viewModeBtn'),
+            importExportBtn: document.getElementById('importExportBtn'),
+            weekIndicator: document.getElementById('weekIndicator'),
+            prevWeekBtn: document.getElementById('prevWeekBtn'),
+            nextWeekBtn: document.getElementById('nextWeekBtn'),
+            currentWeekBtn: document.getElementById('currentWeekBtn'),
+            saveBtn: document.getElementById('saveBtn'),
+            clearWeekBtn: document.getElementById('clearWeekBtn'),
+            scheduleTableBody: document.getElementById('scheduleTableBody'),
+            showOnlyScheduled: document.getElementById('showOnlyScheduled'),
+            completedStats: document.getElementById('completedStats'),
+            totalStats: document.getElementById('totalStats'),
+            completionRate: document.getElementById('completionRate'),
+            classSelector: document.getElementById('classSelector'),
+            classProgressList: document.getElementById('classProgressList'),
+            classCompletedStats: document.getElementById('classCompletedStats'),
+            classTotalStats: document.getElementById('classTotalStats'),
+            classCompletionRate: document.getElementById('classCompletionRate'),
+            dropArea: document.getElementById('dropArea'),
+            fileInput: document.getElementById('fileInput'),
+            importPreview: document.getElementById('importPreview'),
+            previewTableBody: document.getElementById('previewTableBody'),
+            importError: document.getElementById('importError'),
+            cancelImportBtn: document.getElementById('cancelImportBtn'),
+            confirmImportBtn: document.getElementById('confirmImportBtn'),
+            exportAllBtn: document.getElementById('exportAllBtn'),
+            exportCurrentClassBtn: document.getElementById('exportCurrentClassBtn'),
+            backupDataBtn: document.getElementById('backupDataBtn'),
+            restoreFileInput: document.getElementById('restoreFileInput'),
+            clearAllDataBtn: document.getElementById('clearAllDataBtn'),
+            notification: document.getElementById('notification'),
+            notificationIcon: document.getElementById('notificationIcon'),
+            notificationMessage: document.getElementById('notificationMessage')
+        };
+
+        // 初始化
+        function init() {
+            // 设置事件监听器
+            setupEventListeners();
+            
+            // 初始化班级选择器
+            initClassSelector();
+            
+            // 渲染编辑模式表格
+            renderScheduleTable();
+            
+            // 更新统计信息
+            updateStats();
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 模式切换
+            elements.editModeBtn.addEventListener('click', () => switchMode('edit'));
+            elements.viewModeBtn.addEventListener('click', () => switchMode('view'));
+            elements.importExportBtn.addEventListener('click', () => switchMode('importExport'));
+            
+            // 周次导航
+            elements.prevWeekBtn.addEventListener('click', () => changeWeek(-1));
+            elements.nextWeekBtn.addEventListener('click', () => changeWeek(1));
+            elements.currentWeekBtn.addEventListener('click', () => {
+                currentWeek = getCurrentWeek();
+                updateWeekIndicator();
+                renderScheduleTable();
+                updateStats();
+            });
+            
+            // 保存按钮
+            elements.saveBtn.addEventListener('click', saveData);
+            
+            // 清空本周按钮
+            elements.clearWeekBtn.addEventListener('click', () => {
+                if (confirm('确定要清空本周所有数据吗？')) {
+                    clearWeekData();
+                    renderScheduleTable();
+                    updateStats();
+                    showNotification('本周数据已清空', 'success');
+                }
+            });
+            
+            // 只显示有课班级
+            elements.showOnlyScheduled.addEventListener('change', renderScheduleTable);
+            
+            // 班级选择器变化
+            elements.classSelector.addEventListener('change', renderClassProgress);
+            
+            // 文件拖放区域
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                elements.dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                elements.dropArea.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                elements.dropArea.addEventListener(eventName, unhighlight, false);
+            });
+            
+            function highlight() {
+                elements.dropArea.classList.add('border-primary', 'bg-primary/5');
+            }
+            
+            function unhighlight() {
+                elements.dropArea.classList.remove('border-primary', 'bg-primary/5');
+            }
+            
+            elements.dropArea.addEventListener('drop', handleDrop, false);
+            elements.fileInput.addEventListener('change', handleFileSelect, false);
+            
+            // 导入相关按钮
+            elements.cancelImportBtn.addEventListener('click', cancelImport);
+            elements.confirmImportBtn.addEventListener('click', confirmImport);
+            
+            // 导出相关按钮
+            elements.exportAllBtn.addEventListener('click', exportAllData);
+            elements.exportCurrentClassBtn.addEventListener('click', exportCurrentClassData);
+            elements.backupDataBtn.addEventListener('click', backupData);
+            elements.restoreFileInput.addEventListener('change', restoreData);
+            elements.clearAllDataBtn.addEventListener('click', () => {
+                if (confirm('确定要清空所有数据吗？此操作不可恢复！')) {
+                    clearAllData();
+                    renderScheduleTable();
+                    renderClassProgress();
+                    updateStats();
+                    showNotification('所有数据已清空', 'success');
+                }
+            });
+        }
+
+        // 切换模式
+        function switchMode(mode) {
+            // 隐藏所有视图
+            elements.editModeView.classList.add('hidden');
+            elements.viewModeView.classList.add('hidden');
+            elements.importExportView.classList.add('hidden');
+            
+            // 重置所有按钮样式
+            elements.editModeBtn.classList.remove('text-primary', 'border-primary');
+            elements.editModeBtn.classList.add('text-gray-600');
+            elements.viewModeBtn.classList.remove('text-primary', 'border-primary');
+            elements.viewModeBtn.classList.add('text-gray-600');
+            elements.importExportBtn.classList.remove('text-primary', 'border-primary');
+            elements.importExportBtn.classList.add('text-gray-600');
+            
+            // 显示选中的视图并设置按钮样式
+            if (mode === 'edit') {
+                elements.editModeView.classList.remove('hidden');
+                elements.editModeBtn.classList.remove('text-gray-600');
+                elements.editModeBtn.classList.add('text-primary', 'border-primary');
+            } else if (mode === 'view') {
+                elements.viewModeView.classList.remove('hidden');
+                elements.viewModeBtn.classList.remove('text-gray-600');
+                elements.viewModeBtn.classList.add('text-primary', 'border-primary');
+                renderClassProgress();
+                initProgressChart();
+            } else if (mode === 'importExport') {
+                elements.importExportView.classList.remove('hidden');
+                elements.importExportBtn.classList.remove('text-gray-600');
+                elements.importExportBtn.classList.add('text-primary', 'border-primary');
+            }
+        }
+
+        // 更改周次
+        function changeWeek(delta) {
+            currentWeek += delta;
+            if (currentWeek < 1) currentWeek = 1;
+            updateWeekIndicator();
+            renderScheduleTable();
+            updateStats();
+        }
+
+        // 更新周次指示器
+        function updateWeekIndicator() {
+            elements.weekIndicator.textContent = `第${currentWeek}周`;
+        }
+
+        // 获取当前教学周
+        function getCurrentWeek() {
+            const today = new Date();
+            const timeDiff = today - START_DATE;
+            const dayDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+            return Math.max(1, Math.floor(dayDiff / 7) + 1);
+        }
+
+        // 初始化班级选择器
+        function initClassSelector() {
+            elements.classSelector.innerHTML = '';
+            
+            // 添加所有班级选项
+            CLASSES.forEach(className => {
+                const option = document.createElement('option');
+                option.value = className;
+                option.textContent = className;
+                elements.classSelector.appendChild(option);
+            });
+        }
+
+        // 渲染课程表
+        function renderScheduleTable() {
+            elements.scheduleTableBody.innerHTML = '';
+            const weekKey = `week${currentWeek}`;
+            
+            // 初始化本周数据（如果不存在）
+            if (!scheduleData[weekKey]) {
+                scheduleData[weekKey] = {};
+            }
+            
+            const showOnlyScheduled = elements.showOnlyScheduled.checked;
+            
+            PERIODS.forEach(period => {
+                const row = document.createElement('tr');
+                row.className = period.type === 'morning' ? 'morning-bg' : 'afternoon-bg';
+                
+                // 时间段单元格
+                const periodCell = document.createElement('td');
+                periodCell.className = 'p-3 font-medium border-b border-gray-200';
+                periodCell.textContent = period.name;
+                row.appendChild(periodCell);
+                
+                // 每天的单元格
+                DAYS.forEach(day => {
+                    const dayCell = document.createElement('td');
+                    dayCell.className = 'p-1 border-b border-gray-200';
+                    
+                    const cellContainer = document.createElement('div');
+                    cellContainer.className = 'flex';
+                    
+                    // 班级选择单元格
+                    const classCell = document.createElement('div');
+                    classCell.className = 'w-1/3 p-1';
+                    
+                    const classSelect = document.createElement('select');
+                    classSelect.className = 'cell-editable w-full text-sm';
+                    classSelect.dataset.week = currentWeek;
+                    classSelect.dataset.day = day;
+                    classSelect.dataset.period = period.name;
+                    
+                    // 添加空选项
+                    const emptyOption = document.createElement('option');
+                    emptyOption.value = '';
+                    emptyOption.textContent = '--';
+                    classSelect.appendChild(emptyOption);
+                    
+                    // 添加班级选项
+                    CLASSES.forEach(className => {
+                        const option = document.createElement('option');
+                        option.value = className;
+                        option.textContent = className;
+                        classSelect.appendChild(option);
+                    });
+                    
+                    // 设置当前值
+                    const timeSlotKey = `${day}${period.name}`;
+                    if (scheduleData[weekKey][timeSlotKey]) {
+                        classSelect.value = scheduleData[weekKey][timeSlotKey].class || '';
+                    }
+                    
+                    // 添加事件监听器
+                    classSelect.addEventListener('change', validateClassSelection);
+                    
+                    classCell.appendChild(classSelect);
+                    cellContainer.appendChild(classCell);
+                    
+                    // 进度记录单元格
+                    const progressCell = document.createElement('div');
+                    progressCell.className = 'w-2/3 p-1';
+                    
+                    const progressInput = document.createElement('textarea');
+                    progressInput.className = 'cell-editable w-full text-sm h-full min-h-[40px] resize-none';
+                    progressInput.dataset.week = currentWeek;
+                    progressInput.dataset.day = day;
+                    progressInput.dataset.period = period.name;
+                    progressInput.placeholder = '输入教学内容...';
+                    
+                    // 设置当前值
+                    if (scheduleData[weekKey][timeSlotKey]) {
+                        progressInput.value = scheduleData[weekKey][timeSlotKey].progress || '';
+                    }
+                    
+                    // 禁用未选择班级的进度输入
+                    if (!classSelect.value) {
+                        progressInput.disabled = true;
+                        progressInput.placeholder = '请先选择班级';
+                    }
+                    
+                    progressCell.appendChild(progressInput);
+                    cellContainer.appendChild(progressCell);
+                    
+                    dayCell.appendChild(cellContainer);
+                    row.appendChild(dayCell);
+                });
+                
+                // 根据筛选条件决定是否显示行
+                if (showOnlyScheduled) {
+                    let hasScheduledClass = false;
+                    DAYS.forEach(day => {
+                        const timeSlotKey = `${day}${period.name}`;
+                        if (scheduleData[weekKey][timeSlotKey] && scheduleData[weekKey][timeSlotKey].class) {
+                            hasScheduledClass = true;
+                        }
+                    });
+                    
+                    if (!hasScheduledClass) {
+                        row.classList.add('hidden');
+                    }
+                }
+                
+                elements.scheduleTableBody.appendChild(row);
+            });
+        }
+
+        // 验证班级选择（确保每个班级每周只安排一次）
+        function validateClassSelection(e) {
+            const selectElement = e.target;
+            const selectedClass = selectElement.value;
+            const week = selectElement.dataset.week;
+            const day = selectElement.dataset.day;
+            const period = selectElement.dataset.period;
+            const timeSlotKey = `${day}${period}`;
+            
+            // 获取同周的所有班级选择
+            const weekKey = `week${week}`;
+            let conflictFound = false;
+            
+            if (selectedClass) {
+                // 检查同周内是否有相同班级的其他安排
+                for (const slotKey in scheduleData[weekKey]) {
+                    if (slotKey !== timeSlotKey && 
+                        scheduleData[weekKey][slotKey] && 
+                        scheduleData[weekKey][slotKey].class === selectedClass) {
+                        
+                        conflictFound = true;
+                        break;
+                    }
+                }
+                
+                // 检查当前页面上的其他选择
+                document.querySelectorAll(`select[data-week="${week}"]:not([data-day="${day}"][data-period="${period}"])`)
+                    .forEach(select => {
+                        if (select.value === selectedClass) {
+                            conflictFound = true;
+                        }
+                    });
+            }
+            
+            // 获取对应的进度输入框
+            const progressInput = document.querySelector(`textarea[data-week="${week}"][data-day="${day}"][data-period="${period}"]`);
+            
+            if (conflictFound && selectedClass) {
+                // 有冲突，恢复之前的值
+                const previousValue = scheduleData[weekKey][timeSlotKey] ? scheduleData[weekKey][timeSlotKey].class : '';
+                selectElement.value = previousValue;
+                
+                // 更新进度输入框状态
+                progressInput.disabled = !previousValue;
+                progressInput.placeholder = previousValue ? '输入教学内容...' : '请先选择班级';
+                
+                showNotification(`班级 ${selectedClass} 本周已安排课程，不能重复安排`, 'error');
+                return false;
+            }
+            
+            // 更新进度输入框状态
+            progressInput.disabled = !selectedClass;
+            progressInput.placeholder = selectedClass ? '输入教学内容...' : '请先选择班级';
+            
+            return true;
+        }
+
+        // 保存数据
+        function saveData() {
+            const weekKey = `week${currentWeek}`;
+            let changesMade = false;
+            
+            // 初始化本周数据（如果不存在）
+            if (!scheduleData[weekKey]) {
+                scheduleData[weekKey] = {};
+                changesMade = true;
+            }
+            
+            // 收集所有数据
+            document.querySelectorAll('select[data-week]').forEach(select => {
+                const week = select.dataset.week;
+                if (parseInt(week) !== currentWeek) return;
+                
+                const day = select.dataset.day;
+                const period = select.dataset.period;
+                const timeSlotKey = `${day}${period}`;
+                const className = select.value;
+                
+                // 找到对应的进度输入框
+                const progressInput = document.querySelector(`textarea[data-week="${week}"][data-day="${day}"][data-period="${period}"]`);
+                const progress = progressInput.value.trim();
+                
+                // 更新数据
+                if (className) {
+                    if (!scheduleData[weekKey][timeSlotKey] || 
+                        scheduleData[weekKey][timeSlotKey].class !== className || 
+                        scheduleData[weekKey][timeSlotKey].progress !== progress) {
+                        
+                        scheduleData[weekKey][timeSlotKey] = { class: className, progress: progress };
+                        changesMade = true;
+                    }
+                } else {
+                    // 如果未选择班级，但之前有数据，则删除
+                    if (scheduleData[weekKey][timeSlotKey]) {
+                        delete scheduleData[weekKey][timeSlotKey];
+                        changesMade = true;
+                    }
+                }
+            });
+            
+            // 保存到本地存储
+            if (changesMade) {
+                localStorage.setItem('teachingSchedule', JSON.stringify(scheduleData));
+                showNotification('数据已保存', 'success');
+                updateStats();
+                
+                // 如果当前在查看模式，更新显示
+                if (!elements.viewModeView.classList.contains('hidden')) {
+                    renderClassProgress();
+                }
+            } else {
+                showNotification('没有数据变化', 'info');
+            }
+        }
+
+        // 清空本周数据
+        function clearWeekData() {
+            const weekKey = `week${currentWeek}`;
+            if (scheduleData[weekKey]) {
+                delete scheduleData[weekKey];
+                localStorage.setItem('teachingSchedule', JSON.stringify(scheduleData));
+            }
+        }
+
+        // 清空所有数据
+        function clearAllData() {
+            scheduleData = {};
+            localStorage.setItem('teachingSchedule', JSON.stringify(scheduleData));
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            let completedCount = 0;
+            let totalCount = 0;
+            
+            // 计算编辑模式的统计
+            for (const weekKey in scheduleData) {
+                const weekData = scheduleData[weekKey];
+                for (const slotKey in weekData) {
+                    totalCount++;
+                    if (weekData[slotKey].progress && weekData[slotKey].progress.trim() !== '') {
+                        completedCount++;
+                    }
+                }
+            }
+            
+            const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+            
+            elements.completedStats.textContent = `已完成: ${completedCount}`;
+            elements.totalStats.textContent = `总计: ${totalCount}`;
+            elements.completionRate.textContent = `完成率: ${completionRate}%`;
+            
+            // 如果在查看模式，更新班级统计
+            if (!elements.viewModeView.classList.contains('hidden')) {
+                renderClassProgress();
+            }
+        }
+
+        // 渲染班级进度
+        function renderClassProgress() {
+            const selectedClass = elements.classSelector.value;
+            elements.classProgressList.innerHTML = '';
+            
+            if (!selectedClass) {
+                elements.classProgressList.innerHTML = `
+                    <div class="p-6 text-center text-gray-500">
+                        请选择一个班级查看其教学进度
+                    </div>
+                `;
+                return;
+            }
+            
+            // 收集该班级的所有进度记录
+            const classProgress = [];
+            
+            for (const weekKey in scheduleData) {
+                const weekNum = parseInt(weekKey.replace('week', ''));
+                const weekData = scheduleData[weekKey];
+                
+                for (const slotKey in weekData) {
+                    const slotData = weekData[slotKey];
+                    if (slotData.class === selectedClass) {
+                        // 解析时间段
+                        const [day, period] = parseTimeSlot(slotKey);
+                        
+                        classProgress.push({
+                            week: weekNum,
+                            day,
+                            period,
+                            progress: slotData.progress || '未记录'
+                        });
+                    }
+                }
+            }
+            
+            // 按周排序
+            classProgress.sort((a, b) => a.week - b.week);
+            
+            // 更新班级统计
+            const totalClasses = classProgress.length;
+            const completedClasses = classProgress.filter(item => 
+                item.progress && item.progress.trim() !== '' && item.progress !== '未记录'
+            ).length;
+            const completionRate = totalClasses > 0 ? Math.round((completedClasses / totalClasses) * 100) : 0;
+            
+            elements.classCompletedStats.textContent = `已完成: ${completedClasses}`;
+            elements.classTotalStats.textContent = `总计: ${totalClasses}`;
+            elements.classCompletionRate.textContent = `完成率: ${completionRate}%`;
+            
+            // 渲染进度列表
+            if (classProgress.length === 0) {
+                elements.classProgressList.innerHTML = `
+                    <div class="p-6 text-center text-gray-500">
+                        该班级暂无教学进度记录
+                    </div>
+                `;
+            } else {
+                // 按周分组显示
+                let currentWeek = -1;
+                classProgress.forEach(item => {
+                    if (item.week !== currentWeek) {
+                        // 新的一周，添加周标题
+                        const weekHeader = document.createElement('div');
+                        weekHeader.className = 'section-header bg-gray-50';
+                        weekHeader.textContent = `第${item.week}周`;
+                        elements.classProgressList.appendChild(weekHeader);
+                        
+                        currentWeek = item.week;
+                    }
+                    
+                    // 添加进度项
+                    const progressItem = document.createElement('div');
+                    progressItem.className = 'p-4 hover:bg-gray-50 transition-colors';
+                    
+                    const progressClass = item.progress && item.progress.trim() !== '' && item.progress !== '未记录' 
+                        ? 'text-gray-800' 
+                        : 'text-gray-400 italic';
+                    
+                    progressItem.innerHTML = `
+                        <div class="flex flex-wrap justify-between items-start">
+                            <div class="font-medium mb-1">${item.day} ${item.period}</div>
+                            <div class="text-sm text-gray-500">第${item.week}周</div>
+                        </div>
+                        <div class="${progressClass} text-sm whitespace-pre-line">${item.progress}</div>
+                    `;
+                    
+                    elements.classProgressList.appendChild(progressItem);
+                });
+            }
+            
+            // 更新图表
+            initProgressChart();
+        }
+
+        // 解析时间段
+        function parseTimeSlot(slotKey) {
+            // 匹配上午或下午
+            const periodMatch = slotKey.match(/(上午|下午)\d+节/);
+            const period = periodMatch ? periodMatch[0] : '';
+            
+            // 提取星期
+            const day = slotKey.replace(period, '');
+            
+            return [day, period];
+        }
+
+        // 初始化进度图表
+        function initProgressChart() {
+            const selectedClass = elements.classSelector.value;
+            if (!selectedClass) return;
+            
+            // 收集每周完成情况
+            const weekData = {};
+            
+            // 初始化最多20周的数据
+            for (let i = 1; i <= 20; i++) {
+                weekData[i] = { total: 0, completed: 0 };
+            }
+            
+            // 填充实际数据
+            for (const weekKey in scheduleData) {
+                const weekNum = parseInt(weekKey.replace('week', ''));
+                const weekRecord = weekData[weekNum] || { total: 0, completed: 0 };
+                
+                const weekSchedule = scheduleData[weekKey];
+                for (const slotKey in weekSchedule) {
+                    const slot = weekSchedule[slotKey];
+                    if (slot.class === selectedClass) {
+                        weekRecord.total++;
+                        if (slot.progress && slot.progress.trim() !== '') {
+                            weekRecord.completed++;
+                        }
+                    }
+                }
+                
+                if (weekNum <= 20) {
+                    weekData[weekNum] = weekRecord;
+                }
+            }
+            
+            // 准备图表数据
+            const labels = [];
+            const completedData = [];
+            
+            for (let i = 1; i <= 20; i++) {
+                labels.push(`第${i}周`);
+                completedData.push(weekData[i].completed);
+            }
+            
+            // 销毁现有图表
+            if (progressChart) {
+                progressChart.destroy();
+            }
+            
+            // 创建新图表
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            progressChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '完成课程数',
+                        data: completedData,
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            },
+                            title: {
+                                display: true,
+                                text: '完成课程数'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '周次'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const weekNum = context.dataIndex + 1;
+                                    const data = weekData[weekNum];
+                                    return `完成: ${data.completed}/${data.total}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 处理文件拖放
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        // 处理文件选择
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        // 处理文件
+        function handleFiles(files) {
+            if (files.length !== 1) {
+                showImportError('请选择一个CSV文件');
+                return;
+            }
+            
+            const file = files[0];
+            if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+                showImportError('请选择CSV格式的文件');
+                return;
+            }
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const content = e.target.result;
+                    processCsvContent(content);
+                } catch (error) {
+                    showImportError('文件解析错误: ' + error.message);
+                }
+            };
+            
+            reader.onerror = function() {
+                showImportError('文件读取错误');
+            };
+            
+            // 尝试用UTF-8编码读取
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        // 处理CSV内容
+        function processCsvContent(content) {
+            // 清除之前的错误
+            hideImportError();
+            
+            // 分割行
+            const lines = content.split(/\r\n|\n/).filter(line => line.trim() !== '');
+            if (lines.length === 0) {
+                showImportError('CSV文件为空');
+                return;
+            }
+            
+            // 解析CSV数据
+            const csvData = [];
+            let hasHeader = false;
+            
+            // 检查第一行是否为标题行
+            const firstLine = lines[0].split(',');
+            if (firstLine.length >= 2 && 
+                (firstLine[0].trim() === '时间段' || firstLine[0].trim() === '时间') &&
+                (firstLine[1].trim() === '班级名称' || firstLine[1].trim() === '班级')) {
+                
+                hasHeader = true;
+            }
+            
+            // 处理每一行
+            const startIndex = hasHeader ? 1 : 0;
+            let errors = [];
+            
+            for (let i = startIndex; i < lines.length; i++) {
+                const line = lines[i];
+                const row = line.split(',').map(cell => cell.trim());
+                
+                if (row.length < 2) {
+                    errors.push(`第${i+1}行: 每行必须包含至少两个字段（时间段和班级名称）`);
+                    continue;
+                }
+                
+                const timeSlot = row[0];
+                const className = row[1];
+                
+                // 验证时间段格式
+                if (!validateTimeSlot(timeSlot)) {
+                    errors.push(`第${i+1}行: 时间段格式无效（${timeSlot}），应为"周一上午1节"这样的格式`);
+                }
+                
+                // 验证班级名称
+                if (!CLASSES.includes(className)) {
+                    errors.push(`第${i+1}行: 班级名称无效（${className}），应为3.1班至3.7班或5.1班至5.7班`);
+                }
+                
+                csvData.push({
+                    timeSlot,
+                    className,
+                    lineNumber: i + 1
+                });
+            }
+            
+            // 检查班级是否重复安排
+            const classScheduleCount = {};
+            csvData.forEach(item => {
+                if (!classScheduleCount[item.className]) {
+                    classScheduleCount[item.className] = 0;
+                }
+                classScheduleCount[item.className]++;
+            });
+            
+            for (const className in classScheduleCount) {
+                if (classScheduleCount[className] > 1) {
+                    errors.push(`班级 ${className} 被安排了 ${classScheduleCount[className]} 次，每个班级每周只能安排一次`);
+                }
+            }
+            
+            // 如果有错误，显示错误信息
+            if (errors.length > 0) {
+                showImportError(errors.join('<br>'));
+                return;
+            }
+            
+            // 显示预览
+            showImportPreview(csvData);
+        }
+
+        // 验证时间段格式
+        function validateTimeSlot(timeSlot) {
+            const dayRegex = /(周一|周二|周三|周四|周五)/;
+            const periodRegex = /(上午|下午)(1|2|3|4)节/;
+            
+            // 上午只能有1-4节，下午只能有1-2节
+            const parts = timeSlot.match(/(周一|周二|周三|周四|周五)(上午|下午)(\d+)节/);
+            if (!parts) return false;
+            
+            const periodType = parts[2];
+            const periodNum = parseInt(parts[3]);
+            
+            if (periodType === '上午' && (periodNum < 1 || periodNum > 4)) return false;
+            if (periodType === '下午' && (periodNum < 1 || periodNum > 2)) return false;
+            
+            return true;
+        }
+
+        // 显示导入预览
+        function showImportPreview(data) {
+            elements.previewTableBody.innerHTML = '';
+            
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-3 py-2 whitespace-nowrap">${item.timeSlot}</td>
+                    <td class="px-3 py-2 whitespace-nowrap">${item.className}</td>
+                `;
+                elements.previewTableBody.appendChild(row);
+            });
+            
+            elements.importPreview.classList.remove('hidden');
+            elements.fileInput.value = ''; // 重置文件输入，允许重新选择同一文件
+        }
+
+        // 显示导入错误
+        function showImportError(message) {
+            elements.importError.innerHTML = `<i class="fa fa-exclamation-circle mr-1"></i>${message}`;
+            elements.importError.classList.remove('hidden');
+            elements.importPreview.classList.add('hidden');
+        }
+
+        // 隐藏导入错误
+        function hideImportError() {
+            elements.importError.classList.add('hidden');
+        }
+
+        // 取消导入
+        function cancelImport() {
+            elements.importPreview.classList.add('hidden');
+            elements.fileInput.value = '';
+            hideImportError();
+        }
+
+        // 确认导入
+        function confirmImport() {
+            // 获取预览数据
+            const rows = elements.previewTableBody.querySelectorAll('tr');
+            const importData = [];
+            
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                importData.push({
+                    timeSlot: cells[0].textContent,
+                    className: cells[1].textContent
+                });
+            });
+            
+            // 将数据导入到当前周
+            const weekKey = `week${currentWeek}`;
+            scheduleData[weekKey] = scheduleData[weekKey] || {};
+            
+            importData.forEach(item => {
+                // 检查时间段是否已存在，如果存在则覆盖
+                scheduleData[weekKey][item.timeSlot] = {
+                    class: item.className,
+                    progress: '' // 进度为空，待填写
+                };
+            });
+            
+            // 保存数据
+            localStorage.setItem('teachingSchedule', JSON.stringify(scheduleData));
+            
+            // 更新界面
+            cancelImport();
+            renderScheduleTable();
+            updateStats();
+            showNotification(`成功导入 ${importData.length} 条课程安排`, 'success');
+            
+            // 切换回编辑模式
+            switchMode('edit');
+        }
+
+        // 导出所有数据
+        function exportAllData() {
+            // 准备CSV内容
+            let csvContent = "周次,时间段,班级,教学进度\n";
+            
+            for (const weekKey in scheduleData) {
+                const weekNum = weekKey.replace('week', '');
+                const weekData = scheduleData[weekKey];
+                
+                for (const timeSlot in weekData) {
+                    const slotData = weekData[timeSlot];
+                    const progress = slotData.progress || '';
+                    // 处理逗号和换行
+                    const escapedProgress = `"${progress.replace(/"/g, '""')}"`;
+                    csvContent += `${weekNum},${timeSlot},${slotData.class},${escapedProgress}\n`;
+                }
+            }
+            
+            // 创建并下载文件
+            downloadFile(csvContent, '教学进度全量数据.csv', 'text/csv');
+        }
+
+        // 导出当前班级数据
+        function exportCurrentClassData() {
+            const selectedClass = elements.classSelector.value;
+            if (!selectedClass) {
+                showNotification('请先选择一个班级', 'error');
+                return;
+            }
+            
+            // 准备CSV内容
+            let csvContent = "周次,时间段,教学进度\n";
+            
+            for (const weekKey in scheduleData) {
+                const weekNum = weekKey.replace('week', '');
+                const weekData = scheduleData[weekKey];
+                
+                for (const timeSlot in weekData) {
+                    const slotData = weekData[timeSlot];
+                    if (slotData.class === selectedClass) {
+                        const progress = slotData.progress || '';
+                        // 处理逗号和换行
+                        const escapedProgress = `"${progress.replace(/"/g, '""')}"`;
+                        csvContent += `${weekNum},${timeSlot},${escapedProgress}\n`;
+                    }
+                }
+            }
+            
+            // 创建并下载文件
+            const fileName = `${selectedClass}教学进度数据.csv`;
+            downloadFile(csvContent, fileName, 'text/csv');
+        }
+
+        // 备份数据
+        function backupData() {
+            const dataStr = JSON.stringify(scheduleData, null, 2);
+            const fileName = `教学进度数据备份_${new Date().toLocaleDateString().replace(/\//g, '-')}.json`;
+            downloadFile(dataStr, fileName, 'application/json');
+        }
+
+        // 恢复数据
+        function restoreData(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            if (!file.name.endsWith('.json')) {
+                showNotification('请选择JSON格式的备份文件', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const restoredData = JSON.parse(e.target.result);
+                    
+                    // 验证数据格式
+                    if (typeof restoredData === 'object' && restoredData !== null) {
+                        scheduleData = restoredData;
+                        localStorage.setItem('teachingSchedule', JSON.stringify(scheduleData));
+                        
+                        // 更新界面
+                        renderScheduleTable();
+                        renderClassProgress();
+                        updateStats();
+                        showNotification('数据恢复成功', 'success');
+                    } else {
+                        showNotification('备份文件格式不正确', 'error');
+                    }
+                } catch (error) {
+                    showNotification('备份文件解析错误: ' + error.message, 'error');
+                }
+            };
+            
+            reader.readAsText(file);
+            e.target.value = ''; // 重置文件输入
+        }
+
+        // 下载文件工具函数
+        function downloadFile(content, fileName, contentType) {
+            const blob = new Blob([content], { type: contentType });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            
+            // 清理
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 0);
+            
+            showNotification(`文件已导出: ${fileName}`, 'success');
+        }
+
+        // 显示通知
+        function showNotification(message, type = 'info') {
+            const iconClass = {
+                success: 'fa-check-circle text-green-500',
+                error: 'fa-exclamation-circle text-red-500',
+                info: 'fa-info-circle text-blue-500'
+            };
+            
+            const bgColor = {
+                success: 'bg-green-50 border border-green-200',
+                error: 'bg-red-50 border border-red-200',
+                info: 'bg-blue-50 border border-blue-200'
+            };
+            
+            elements.notificationIcon.className = `fa ${iconClass[type]}`;
+            elements.notificationMessage.textContent = message;
+            elements.notification.className = `fixed bottom-4 right-4 px-4 py-3 rounded-md shadow-lg transform translate-y-0 opacity-100 transition-all duration-300 flex items-center ${bgColor[type]}`;
+            
+            // 3秒后隐藏
+            setTimeout(() => {
+                elements.notification.className = 'fixed bottom-4 right-4 px-4 py-3 rounded-md shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 flex items-center';
+            }, 3000);
+        }
+
+        // 启动应用
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
